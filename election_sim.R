@@ -2,8 +2,6 @@
 library(data.table)
 library(Rfast)
 library(LDATS)
-library(doMC)
-registerDoMC(8)
 
 # Set seed
 set.seed(123)
@@ -31,8 +29,8 @@ Sigma <- matrix(c(0.1, -0.075, 0,
 y <- rmvnorm(n_years, mu = mu, sigma = Sigma)
 y <- cbind(rep(0, n_years), y)
 
-# Apply row-wise softmax
-x <- foreach(i = seq_len(n_years), .combine = rbind) %do% softmax(y[i, ])
+# Transform
+x <- softmax(y)
 x <- as.data.table(x)
 colnames(x) <- c('juggernaut', 'big_oppo', 'small_oppo', 'pipsqueak')
 cor(x)
