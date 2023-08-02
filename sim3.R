@@ -104,8 +104,7 @@ state_fn <- function(prov,
     x[, ssp := 0L]
   }
   setnames(x, party_names)
-  x[, province := prov]
-  x[, year := yr]
+  x[, province := prov][, year := yr]
   return(x)
 }
 
