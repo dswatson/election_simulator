@@ -37,7 +37,7 @@ dataland_melt[, region_share := weighted.mean(share, population), by = .(region,
 
 ### REGION LEVEL ###
 
-# Region-wide covariance matrices (excluding PDAL)
+# Region-wide covariance matrix on log vote-share level (excluding PDAL)
 Sigma <- matrix(c(0.1, -0.025, 0, 
                -0.025,    0.1, 0,
                     0,      0, 0.15), nrow = 3, byrow = TRUE)
