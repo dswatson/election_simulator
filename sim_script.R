@@ -5,12 +5,14 @@ setwd('~/Documents/Omega/Economist/election_simulator')
 library(data.table)
 library(Rfast)
 library(LDATS)
+library(matrixStats)
 library(ggplot2)
 
 # Set seed
 set.seed(123)
 
 # Hyperparameters
+n_mc <- 1e6L
 n_sim <- 1e4L
 n_parties <- 4L
 n_states <- 10L
@@ -37,22 +39,29 @@ dataland_melt[, region_share := weighted.mean(share, population), by = .(region,
 
 ### REGION LEVEL ###
 
-# Region-wide covariance matrix on log vote-share level (excluding PDAL)
+# Compute coefficient of variation (requires Monte Carlo)
 Sigma <- matrix(c(0.1, -0.025, 0, 
-               -0.025,    0.1, 0,
-                    0,      0, 0.15), nrow = 3, byrow = TRUE)
-sd_vec <- sqrt(diag(Sigma))
-mu_vec <- log(super_mu) - log(super_mu[1])
-mu_vec <- mu_vec[-1]
-coef_var <- sd_vec / mu_vec
+                  -0.025,    0.1, 0,
+                  0,      0, 0.15), nrow = 3, byrow = TRUE)
+mu <- log(super_mu) - log(super_mu[1])
+mu <- mu[-1]
+y <- rmvnorm(n_mc, mu = mu, sigma = Sigma)
+y <- cbind(rep(0, n_mc), y)
+x <- softmax(y)
+coef_var <- colSds(x) / super_mu
 
 # Sigma function
 sigma_fn <- function(r) {
-  mu <- unique(dataland_melt[region == r, region_share])
-  mu <- log(mu) - log(mu[1])
-  mu <- mu[-1]
-  s <- coef_var * mu
-  sigma_out <- diag(s^2)
+  mu_tmp <- unique(dataland_melt[region == r, .(party, region_share)])$region_share
+  target_var <- (coef_var * mu_tmp)^2
+  logit_var <- sapply(2:length(mu_tmp), function(k) {
+    alpha <- ((1 - mu_tmp[k]) / target_var[k] - 1 / mu_tmp[k]) * mu_tmp[k]^2
+    beta <- alpha * (1 / mu_tmp[k] - 1)
+    p <- rbeta(n_mc, alpha, beta)
+    q <- qlogis(p)
+    return(var(q))
+  })
+  sigma_out <- diag(logit_var)
   for (i in 2:(n_parties - 1)) {
     for (j in 1:(i - 1)) {
       sigma_out[i, j] <- sigma_out[j, i] <- 
@@ -109,11 +118,11 @@ state_fn <- function(prov,
 }
 
 # Example 
-a <- state_fn('Metaflux Realm', 
+a <- state_fn('Cerebrica', 
               yr = 1984, 
               in_party = 'pdal', 
               in_party_num_terms = 1)
-x <- a[, 1:3]
+x <- a[, 1:4]
 colMeans(x)
 cov(x)
 
